@@ -26,6 +26,7 @@ Endpoints are the points in which api interaction happen. In fast api, an end po
 ```python
 from fastapi import FASTAPI
 app= FASTAPI()
+```
 
 @app.get("/")
 async def read_root():
