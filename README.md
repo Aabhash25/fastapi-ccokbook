@@ -39,3 +39,35 @@ return{"message":"this is test message"}
 In this snippet we define an endpoint for the root url. When a get request is made to this url, the read_root function is invoked, returning a json response
 
 ## Routers
+
+When we need to handle multiple endpoints that are in different files, we can benefit from using routers. Router assist us i grouping our endpoints into differnet modules.
+
+```python
+from fastapi import FASTAPI
+router = APIRouter()
+
+@router.get("/items/{items_id}")
+async def read_items(item_id: int):
+    return {"item_id":item_id}
+```
+
+We can now reuse it and attach the route to the FAST api server in main.py
+
+```python
+import router_example
+app = FASTAPI()
+app.include_router(router_example.router)
+
+@app.get("/")
+async def read_root("/"):
+    return {"Hello":"World"}
+
+```
+
+## Running Your FAST API Server
+
+Run the server using `uvicorn main:app --reload`
+
+## Exploring automatic documentation
+
+We can access the automatic docs at http://127.0.0.1:8000/docs for Swagger UI and http://127.0.0.1:8000/redoc for Redoc.
