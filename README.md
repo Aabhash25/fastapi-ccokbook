@@ -14,23 +14,28 @@ Key features that define FastAPI are the following:
 
 Asynchronous Programming helps our application to handle more request simultaneously. It is a style of concurrent programming in which tasks are executed without blocking the execution of other tasks,improving the overall performance of our application. We use async await to leverage asynchronous programming.
 
-````python
+```python
 @app.get("/")
 async def read_root():
     return{"Hello":"World"}
+```
 
 ## Exploring Routers and Endpoints
+
 ### Endpoints
+
 Endpoints are the points in which api interaction happen. In fast api, an end point is created by decorating a function with an HTTP method such as @app.get('/')
 
 ```python
 from fastapi import FASTAPI
 app= FASTAPI()
-```
 
 @app.get("/")
 async def read_root():
-    return{"message":"this is test message"}
+return{"message":"this is test message"}
+
+```
 
 In this snippet we define an endpoint for the root url. When a get request is made to this url, the read_root function is invoked, returning a json response
-````
+
+## Routers
