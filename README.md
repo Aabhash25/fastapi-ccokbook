@@ -1,6 +1,10 @@
 # FASTAPI Learning Notes
 
-## What is FastAPI?
+## Table of Contents
+
+-[First Steps With FAST API](#FastAPI)
+
+## FastAPI
 
 FastAPI is a modern, fast web framework for building APIs with Python based on standard Python type hints.
 
