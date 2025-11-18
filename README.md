@@ -71,3 +71,45 @@ Run the server using `uvicorn main:app --reload`
 ## Exploring automatic documentation
 
 We can access the automatic docs at http://127.0.0.1:8000/docs for Swagger UI and http://127.0.0.1:8000/redoc for Redoc.
+
+## Working with path and query parameters
+
+Parameters allow nyouar api to accept input from users, making your endpoints dynamic and responsive.
+
+### Path Parameter
+
+Path parameters are parts of the URL that are expected to change. For instance, in an endpoint such
+as /books/{book_id}, book_id is a path parameter. FastAPI allows you to capture these
+parameters effortlessly and use them in your function.
+
+```python
+@app.get("/author/{author_id}")
+async def read_author(author_id: int):
+    return{
+        "author_id": author_id,
+        "name": "Ernest Hemingway"
+    }
+```
+
+Here {author_id} is a path parameter
+
+### Query Parameter
+
+Query parameters are used to refine or customize the response of an API endpoint.
+They can be included in the URL after a question mark (? ). For instance, /
+books?genre=fiction&year=2010 might return only books that fall under the fiction
+genre released in 2010.
+
+```python
+@app.get("/books")
+async def read_books(year: int = None):
+    if year:
+        return {"year": year, "books": ["Book1", "Book 2"]}
+    return {"books": ["All Books"]}
+```
+
+Here, year is an optional query parameter. By assigning None as a default value, we make it optional.
+If a year is specified, the endpoint returns books from that year; otherwise, it returns all books.
+
+When we dont provide the query parameter,http://127.0.0.1:8000/books -> it returns All Books
+if we provide the path parameter, http://127.0.0.1:8000/books?year=2003 -> it returns specific books
