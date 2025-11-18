@@ -2,7 +2,7 @@
 
 ## Table of Contents
 
-- [First Steps With FAST API](#first-steps-with-fastapi)
+- [First Steps With FAST API](#first-steps-with-fast-api)
 
 ## First Steps With FAST API
 
