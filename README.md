@@ -14,7 +14,7 @@ Key features that define FastAPI are the following:
 - **Ease of use:** FastAPI is designed to be easy to use, with intuitive coding that accelerates your development time.
 - **Automatic documentation using Swagger:** With FastAPI, the API documentation is generated automatically, a feature that is both a time-saver and a boon for developers.
 
-## Applying Asynchronous Programming
+### Applying Asynchronous Programming
 
 Asynchronous Programming helps our application to handle more request simultaneously. It is a style of concurrent programming in which tasks are executed without blocking the execution of other tasks,improving the overall performance of our application. We use async await to leverage asynchronous programming.
 
@@ -24,9 +24,9 @@ async def read_root():
     return{"Hello":"World"}
 ```
 
-## Exploring Routers and Endpoints
+### Exploring Routers and Endpoints
 
-### Endpoints
+#### Endpoints
 
 Endpoints are the points in which api interaction happen. In fast api, an end point is created by decorating a function with an HTTP method such as @app.get('/')
 
@@ -42,7 +42,7 @@ return{"message":"this is test message"}
 
 In this snippet we define an endpoint for the root url. When a get request is made to this url, the read_root function is invoked, returning a json response
 
-## Routers
+#### Routers
 
 When we need to handle multiple endpoints that are in different files, we can benefit from using routers. Router assist us i grouping our endpoints into differnet modules.
 
@@ -68,19 +68,19 @@ async def read_root("/"):
 
 ```
 
-## Running Your FAST API Server
+#### Running Your FAST API Server
 
 Run the server using `uvicorn main:app --reload`
 
-## Exploring automatic documentation
+### Exploring automatic documentation
 
 We can access the automatic docs at http://127.0.0.1:8000/docs for Swagger UI and http://127.0.0.1:8000/redoc for Redoc.
 
-## Working with path and query parameters
+### Working with path and query parameters
 
 Parameters allow nyouar api to accept input from users, making your endpoints dynamic and responsive.
 
-### Path Parameter
+#### Path Parameter
 
 Path parameters are parts of the URL that are expected to change. For instance, in an endpoint such
 as /books/{book_id}, book_id is a path parameter. FastAPI allows you to capture these
@@ -97,7 +97,7 @@ async def read_author(author_id: int):
 
 Here {author_id} is a path parameter
 
-### Query Parameter
+#### Query Parameter
 
 Query parameters are used to refine or customize the response of an API endpoint.
 They can be included in the URL after a question mark (? ). For instance, /
@@ -138,7 +138,7 @@ class Book(BaseModel):
 
 Here , Book is a pydantic bace model class with three typed fields.
 
-### Defining the request body
+#### Defining the request body
 
 ```python
 In fast api , pydantic models are not just for validation. They also serve as the request body.
@@ -154,7 +154,7 @@ In this endpoint, when a user sends a POST request to the /book endpoint with JS
 automatically parses and validates it against the Book model. If the data is invalid, the user gets an
 automatic error response.
 
-### Validating request data
+#### Validating request data
 
 Pydantic offers advanced validation features. For instance, you can add regex validations, default
 values, and more:
@@ -167,7 +167,7 @@ class Book(BaseModel):
     year: int = Field(..., gt=1900, lt=2100)
 ```
 
-### Managing Respnse Formats
+#### Managing Respnse Formats
 
 astAPI allows you to define response models explicitly, ensuring that the data returned by your
 API matches a specific schema. This can be particularly useful for filtering out sensitive data or
@@ -204,7 +204,7 @@ async def read_all_books() -> Any:
 # rest of the endpoint content
 ```
 
-### Handling Errors and Exceptions
+#### Handling Errors and Exceptions
 
 FastAPI provides built-in support for handling exceptions and errors.
 When an error occurs, FastAPI returns a JSON response containing details about the error, which is
