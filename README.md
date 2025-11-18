@@ -113,3 +113,89 @@ If a year is specified, the endpoint returns books from that year; otherwise, it
 
 When we dont provide the query parameter,http://127.0.0.1:8000/books -> it returns All Books
 if we provide the path parameter, http://127.0.0.1:8000/books?year=2003 -> it returns specific books
+
+### Defining and using Request and Response models
+
+FASTAPI uses pydantic models to define the structure of request data and response data.These models ensure your api is validated,clean and well documented automatically.
+Pydantic models are a powerful feature for data validation and conversion. They allow you to define
+the structure, type, and constraints of the data your application handles, both for incoming requests
+and outgoing responses.
+
+#### Creating the model
+
+```python
+from pydantic import BaseModel
+
+class Book(BaseModel):
+    title: str
+    author: str
+    year:int
+```
+
+Here , Book is a pydantic bace model class with three typed fields.
+
+### Defining the request body
+
+```python
+In fast api , pydantic models are not just for validation. They also serve as the request body.
+from models import Book
+
+
+@app.post("/book")
+async def create_book(book: Book):
+    return book
+```
+
+In this endpoint, when a user sends a POST request to the /book endpoint with JSON data, FastAPI
+automatically parses and validates it against the Book model. If the data is invalid, the user gets an
+automatic error response.
+
+### Validating request data
+
+Pydantic offers advanced validation features. For instance, you can add regex validations, default
+values, and more:
+
+```python
+from pydantic import BaseModel, Field
+class Book(BaseModel):
+    title: str = Field(..., min_length=1, max_length=100)
+    author: str = Field(..., min_length=1, max_length=50)
+    year: int = Field(..., gt=1900, lt=2100)
+```
+
+### Managing Respnse Formats
+
+astAPI allows you to define response models explicitly, ensuring that the data returned by your
+API matches a specific schema. This can be particularly useful for filtering out sensitive data or
+restructuring the response.
+
+```python
+from pydantic import BaseModel
+
+
+class BookResponse(BaseModel):
+    title: str
+    author: str
+
+
+@app.get("/allbooks")
+async def read_all_books() -> list[BookResponse]:
+    return [
+        {"id": 1, "title": "1984", "author": "Mr X"},
+        {
+            "id": 1,
+            "title": "The Great Gatsby",
+            "author": "F.Scott Fitzgerald",
+        },
+    ]
+```
+
+Here, the -> list[BookResponse] function type hint tells FastAPI to use the BookResponse
+model for responses, ensuring that only the title and author fields are included in the response JSON.
+Alternatively, you can specify the response type in the endpoint decorator’s arguments as follows:
+
+```python
+@app.get("/allbooks", response_model= list[BookResponse])
+async def read_all_books() -> Any:
+# rest of the endpoint content
+```

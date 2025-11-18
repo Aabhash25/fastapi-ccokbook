@@ -22,3 +22,32 @@ async def read_books(
     if year:
         return {"year": year, "books": ["Book1", "Book 2"]}
     return {"books": ["All Books"]}
+
+
+from models import Book
+
+
+@app.post("/book")
+async def create_book(book: Book):
+    return book
+
+
+from pydantic import BaseModel
+
+
+class BookResponse(BaseModel):
+    title: str
+    author: str
+    id: int
+
+
+@app.get("/allbooks")
+async def read_all_books() -> list[BookResponse]:
+    return [
+        {"id": 1, "title": "1984", "author": "Mr X"},
+        {
+            "id": 1,
+            "title": "The Great Gatsby",
+            "author": "F.Scott Fitzgerald",
+        },
+    ]
