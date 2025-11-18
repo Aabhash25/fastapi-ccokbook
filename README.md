@@ -199,3 +199,50 @@ Alternatively, you can specify the response type in the endpoint decorator’s a
 async def read_all_books() -> Any:
 # rest of the endpoint content
 ```
+
+### Handling Errors and Exceptions
+
+FastAPI provides built-in support for handling exceptions and errors.
+When an error occurs, FastAPI returns a JSON response containing details about the error, which is
+very useful for debugging. However, there are situations where you might want to customize these
+error responses for better user experience or security
+
+We can create a custom error handler that catches a specific type of error and returns a custom response. For instance, if a requested resource is not found, we might want to return a more friendly error message.
+
+```python
+from fastapi import FastAPI, HTTPException
+from starlette.responses import JSONResponse
+
+app = FastAPI()
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=exc.status_code, content={"message": "Oops, Somehting went wrong"}
+    )
+```
+
+In this example, the http_exception_handler function will be used to handle HTTPException
+errors. Whenever an HTTPException error is raised anywhere in your application, FastAPI will
+use this handler to return a custom response.
+
+In some cases we might want to customize the response for validation errors.
+
+```python
+import json
+
+from fastapi import Request, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import PlainTextResponse
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return PlainTextResponse(
+        "This is a plain text response:" f"\n{json.dumps(exc.errors(),indent=2)}",
+        status_code=status.HTTP_400_BAD_REQUEST,
+    )
+```
+
+This custom handler will catch any RequestValidationError error and return a plain text
+response with the details of the error
