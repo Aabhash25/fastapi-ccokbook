@@ -251,3 +251,127 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 This custom handler will catch any RequestValidationError error and return a plain text
 response with the details of the error
+
+## Working With Data
+
+Data handling forms the backbone of any web application which helps in integrating, managing, and optimizing data storage using both SQL and NoSQL databases.
+
+### Setting Up SQL Databases
+
+SQL is the standard language for managing and manipulating relational databases. When combined with Fast A[PI, it unlocks a world of possibliies in data storage and retrieval.
+Fast API's compatibility with SQL databases is facilitiated through ORMs . The most popular one is SQLAlchemy
+`pip install sqlalchemy`
+SQlAlchemy acts ad the bridge between the python code and the database, allowing us to interact with the database using Python classes and objects rather than writing raw SQL queries.
+In SQLAlchemy, models are typically6 defined using classes, with each class corresponding to a table in the database, and each attribute of the class corresponding to a coloumn in the table.
+
+1. Create a folder called sql_example and create a file name database.py
+
+```python
+from sqlalchemy.orm import DeclarativeBase
+class Base(DeclarativeBase)
+    pass
+```
+
+To define a model in SQL Alchemy, you need to create a base class that derives from the Declarative Base Class. This Base class maiontains a catalog of classes and tables you have defined and is central to SQLAlchemy's ORM functionality.
+
+2. Once you have your base class , you can start defininf your models. For instance, if you have a table for users, your model might look something like this
+
+```python
+from sqlalchemy.orm import(
+    Mapped,
+    mapped_coloumn
+)
+class User(Base):
+    __tablename__= "user"
+    id: Mapped[int]= mapped_coloumn(
+        primary_key=True
+    )
+    name: Mapped[str]
+    email: Mapped[str]
+```
+
+In this model, User class corresponds to a table named user in the database, with columns
+for id, name, and email. Each class attribute specifies the data type of the column
+
+3. Once your models have been defined, the next step is to connect to the database and create
+   these tables. SQLAlchemy uses a connection string to define the details of the database it needs
+   to connect to. The format of this connection string varies depending on the database system
+   you are using.
+   For example, a connection string for a SQLite database might look like this:
+   `DATABASE_URL = "SQLITE:///./TEST.DB`
+   SQLite is a lightweight, file-based database that doesn’t require a separate server process. It’s
+   an excellent choice for development and testing.
+4. No further setup is required for SQLite as it will automatically create the test.db database
+   file the first time you connect to it.
+   You will use the DATABASE_URL connection string to create an Engine object in SQLAlchemy
+   that represents the core interface to the database:
+
+```python
+from sqlalchemy import create_engine
+engine= create_engine(DATABASE_URL)
+```
+
+5. With the engine created, you can proceed to create your tables in the database. You can do this
+   by passing your base class and the engine to SQLAlchemy’s create_all method
+
+```python
+Base.metadata.create_all(bind=engine)
+```
+
+Now that you’ve defined all the abstractions of the database in your code, you can proceed with setting
+the database connection.
+
+#### Establishing a database connection
+
+The final part of setting up a SQL database setup is establishing a database connection. This connection
+allows your application to communicate with the database, executing queries and retrieving data.
+Database connections are managed with sessions. A session in SQLAlchemy represents a workspace
+for your objects, a place where you can add new records or fetch existing ones. Each session is bound
+to a single database connection.
+To manage sessions, we need to create a SessionLocal class. This class will be used to create and
+manage session objects for the interactions with the database. Here’s how you can create it:
+
+```python
+from sqlalchemy.orm import sessionmaker
+SessionLocal = sessionmaker(
+    autocommit=False, autoflush=False, bind=engine
+)
+```
+
+The sessionmaker function creates a factory for sessions. The autocommit and autoflush
+parameters are set to False, meaning you have to manually commit transactions and manage them
+when your changes are flushed to the database.
+With the SessionLocal class in place, you can create a function that will be used in your FastAPI
+route functions to get a new database session. We can create it in the main.py module like so:
+
+```python
+from database import SessionLocal
+def get_db()
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+```
+
+In your route functions, you can use this function as a dependency to communicate with
+the database.
+In FastAPI, this can be done with the Depends class. In the main.py file, you can then add an endpoint:
+
+```python
+from fastapi import Depends, FastAPI
+from sqlalchemy.orm import Session
+from database import SessionLocal
+app = FastAPI()
+@app.get("/users/")
+def read_users(db: Session = Depends(get_db)):
+    users = db.query(User).all()
+    return users
+```
+
+This approach ensures that a new session is created for each request and closed when the request is
+finished, which is crucial for maintaining the integrity of your database transactions.
+You can then run the server with the following command:
+`uvicorn main:app --reload`
+If you try to call the endpoint GET at localhost:8000/users you will get an empty list since
+no users have been added already.
