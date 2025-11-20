@@ -3,6 +3,7 @@
 ## Table of Contents
 
 - [First Steps With FAST API](#first-steps-with-fast-api)
+- [Working With Data](#working-with-data)
 
 ## First Steps With FAST API
 
@@ -72,7 +73,7 @@ async def read_root("/"):
 
 Run the server using `uvicorn main:app --reload`
 
-### Exploring automatic documentation
+#### Exploring automatic documentation
 
 We can access the automatic docs at http://127.0.0.1:8000/docs for Swagger UI and http://127.0.0.1:8000/redoc for Redoc.
 
