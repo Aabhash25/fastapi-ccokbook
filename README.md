@@ -4,6 +4,7 @@
 
 - [First Steps With FAST API](#first-steps-with-fast-api)
 - [Working With Data](#working-with-data)
+-[SQL Alchemy](#sql-alchemy)
 
 ## First Steps With FAST API
 
@@ -375,3 +376,24 @@ You can then run the server with the following command:
 `uvicorn main:app --reload`
 If you try to call the endpoint GET at localhost:8000/users you will get an empty list since
 no users have been added already.
+
+## SQL Alchemy
+
+### SQL ALchemy ORM
+SQL Alchemy ORM builds upon the Core to provide object relational mapping capabilities. The ORM provides an additional configuration layer allowing user-defined Python classes to be mapped to database tables and otherconstructs, as well as an object persistence mechanism known as the Session. If then extends the Core-level SQL Expression Language to allow sql queries to be composed and invoked in terms of user-defined objects.
+
+### Establishing Connectivity - The Engine
+
+Every SQLAlchemy application that connects to a database needs to use an Engine.The start of any SQL Alchemy application is an object called the Engine. This object acts as aa central source of connections to a aparticular database, providng both a factory as well as a holding space called a connection pool for these database connecions.The engine is typically a global object created just once for a particular database server, and is configured using a URL string which will describe how it should connect to the database host or backend.
+
+```python
+from  sqlalchemy import create_engine
+engine = create_engine("sqllite+pysqlite:///:memory:",echo =True)
+```
+The main argument to create_engine is a string URL, above passed as the string "sqlite+pysqlite:///:memory:". This string indicates to the Engine three important facts:
+
+What kind of database are we communicating with? This is the sqlite portion above, which links in SQLAlchemy to an object known as the dialect.
+
+What DBAPI are we using? The Python DBAPI is a third party driver that SQLAlchemy uses to interact with a particular database. In this case, we’re using the name pysqlite, which in modern Python use is the sqlite3 standard library interface for SQLite. If omitted, SQLAlchemy will use a default DBAPI for the particular database selected.
+
+How do we locate the database? In this case, our URL includes the phrase /:memory:, which is an indicator to the sqlite3 module that we will be using an in-memory-only database. This kind of database is perfect for experimenting as it does not require any server nor does it need to create new files.
