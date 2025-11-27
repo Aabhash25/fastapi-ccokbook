@@ -377,13 +377,69 @@ You can then run the server with the following command:
 If you try to call the endpoint GET at localhost:8000/users you will get an empty list since
 no users have been added already.
 
-## SQL Alchemy
+#### Understanding CRUD Operation with SQL Alchemy
 
-Python's most powerful database toolkit.
-It has two layers:
-1. Core
-    Low level sql builder
-    you write queries manually
-2. ORM
-    High level object layer
-    you create python classes-> sql alchemy create tables
+After setting up your SQL database with FastAPI, the next crucial step is creating database models. This
+process is central to how your application interacts with the database. Database models in SQLAlchemy
+are essentially Python classes that represent tables in your SQL database. They provide a high-level,
+object-oriented interface to manipulate database records as if they were regular Python objects.
+
+##### Creating a new user
+
+```python
+class UserBody(BaseModel):
+    name: str
+    email: str
+@app.post("/user")
+def add_new_user(
+    user: UserBody,
+    db: Session = Depends(get_db)
+):
+    new_user = User(
+        name=user.name,
+        email=user.email
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return new_user
+```
+
+##### Reading a specific user
+
+```python
+@app.get("/user")
+def get_user(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User Not Found")
+    return user
+```
+
+##### Updating a user
+
+```python
+@app.post("/user/{user_id}")
+def update_user(user_id: int, user: UserBody, db: Session = Depends(get_db)):
+    db_user = db.query(User).filter(User.id == user_id).first()
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    db_user.name = user.name
+    db_user.email = user.email
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+```
+
+#### Deleting a user
+
+```python
+@app.delete("/user")
+def delete_user(user_id: int, db: Session = Depends(get_db)):
+    db_user = db.query(User).filter(User.id == user_id).first()
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User Not Found")
+    db.delete(db_user)
+    db.commit()
+    return {"details": "User deleted"}
+```
