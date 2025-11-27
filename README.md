@@ -4,7 +4,7 @@
 
 - [First Steps With FAST API](#first-steps-with-fast-api)
 - [Working With Data](#working-with-data)
-- [SQL Alchemy](#sql-alchemy)
+- [SQL Alchemy With FAST API GUIDE](#sql-alchemy-with-fast-api-guide)
 
 ## First Steps With FAST API
 
@@ -441,5 +441,225 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User Not Found")
     db.delete(db_user)
     db.commit()
+    return {"details": "User deleted"}
+```
+
+## SQL Alchemy With FAST API GUIDE
+
+### Database Configuration(database.py)
+
+#### Step 1: Create Base Class
+
+```python
+from sqlalchemy.orm import DeclarativeBase
+class Base(DeclarativeBase):
+    pass
+```
+
+DeclarativeBase is the foundation of all ORM models
+All your database models will inherit from this Base Class
+It provides the machinery to map python classes to database tables
+
+#### Step 2: Define ORM Model
+
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import String
+
+```python
+class User(Base):
+    __tablename__="user"
+    id:Mapped[int]=mapped_column(primary_key=True)
+    name:Mapped[str]
+    email:Mapped[str]
+```
+
+**tablename** : specifies the actual table name in the database
+Mapped[int] : type annotation tellin python/sql alchemy the expected type
+mapped_column() : defines column properties
+primary_key= True : Maked this colum the priomary key
+Mapped[str] : String columns(automatically becomes VARCHAR in SQL)
+
+#### Step 3: Database URL Configuration
+
+```python
+DATABASE_URL="sqlite:///./test.db"
+```
+
+sqllite : Database type
+test.dv - file name
+
+#### Step 4 : Create Database Engine
+
+```python
+from sqlalchemy import create_engine
+engine=create_engine(DATABASE_URL)
+```
+
+creates a connection pool to the database
+handle all low level database communication
+manages connections efficiently
+
+#### Step 5 : Create Tables
+
+```python
+Base.metadata.create_all(bind_engine)
+```
+
+Reads all models that inherit from the Base
+Creates corresponding tables in the database
+Only creates tables that dont exist(safe to run multiple times)
+
+#### Step 6 : Session Factory
+
+```python
+from sqlalchemy.orm import sessionmaker
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine
+)
+```
+
+Creeates a factory for database sessions
+Session: a workspace for database operations
+autocommit=False : Changes aren't saved untill you call db.commit()
+autoflush=Fales : Don't automatically sync changes to database
+bind=engine : Connect sessions to our database engine
+
+### FASTAPI APPLICATION (main.py)
+
+#### Step 1: Import Dependencies
+
+```python
+from fastapi import Depends,FastAPI,HTTPException
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from database import SessionLocal,User
+```
+
+#### Step 2: Database Dependency Function
+
+```python
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally db.close
+```
+
+Creates new database session
+Yield the session (gives it to the rout function)
+Automatically closes the session when done (even if error occur)
+
+### Dependency Injection
+
+Instead of creating database connections manually in each route:
+
+```python
+# ❌ Without dependency injection
+@app.get("/users/")
+def read_users():
+    db = SessionLocal()
+    users = db.query(User).all()
+    db.close()
+    return users
+```
+
+We use Depends() to inject it automatically:
+
+```python
+# ✅ With dependency injection
+@app.get("/users/")
+def read_users(db: Session = Depends(get_db)):
+    users = db.query(User).all()
+    return users
+```
+
+### CRUD OPERATIONS
+
+#### CREATE- ADD NEW USER
+
+```python
+class UserBody(BaseModel):
+    name: str
+    email: str
+
+@app.post("/user")
+def add_new_user(user: UserBody, db: Session = Depends(get_db)):
+    # Create ORM object
+    new_user = User(name=user.name, email=user.email)
+
+    # Add to session (staged for insertion)
+    db.add(new_user)
+
+    # Commit to database (actually inserts)
+    db.commit()
+
+    # Refresh to get auto-generated ID
+    db.refresh(new_user)
+
+    return new_user
+```
+
+#### Read- READ USER
+
+```python
+@app.get("/users/")
+def read_users(db: Session = Depends(get_db)):
+    users = db.query(User).all()
+    return users
+```
+
+#### Read specific user
+
+```python
+@app.get("/user")
+def get_user(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if user is None:
+        raise HTTPException(status_code=404, detail="User Not Found")
+
+    return user
+```
+
+#### Update
+
+```python
+@app.post("/user/{user_id}")
+def update_user(user_id: int, user: UserBody, db: Session = Depends(get_db)):
+    # Find existing user
+    db_user = db.query(User).filter(User.id == user_id).first()
+
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Update fields
+    db_user.name = user.name
+    db_user.email = user.email
+
+    # Save changes
+    db.commit()
+
+    # Refresh to get latest data
+    db.refresh(db_user)
+
+    return db_user
+```
+
+#### Delete
+
+```python
+@app.delete("/user")
+def delete_user(user_id: int, db: Session = Depends(get_db)):
+    db_user = db.query(User).filter(User.id == user_id).first()
+
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User Not Found")
+
+    # Delete from database
+    db.delete(db_user)
+    db.commit()
+
     return {"details": "User deleted"}
 ```
