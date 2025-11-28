@@ -3,8 +3,8 @@
 ## Table of Contents
 
 - [First Steps With FAST API](#first-steps-with-fast-api)
-- [Working With Data](#working-with-data)
 - [SQL Alchemy With FAST API GUIDE](#sql-alchemy-with-fast-api-guide)
+- [Working With Data](#working-with-data)
 
 ## First Steps With FAST API
 
@@ -252,6 +252,144 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 This custom handler will catch any RequestValidationError error and return a plain text
 response with the details of the error
+
+### FASTAPI APPLICATION (main.py)
+
+#### Step 1: Import Dependencies
+
+```python
+from fastapi import Depends,FastAPI,HTTPException
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from database import SessionLocal,User
+```
+
+#### Step 2: Database Dependency Function
+
+```python
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally db.close
+```
+
+Creates new database session
+Yield the session (gives it to the rout function)
+Automatically closes the session when done (even if error occur)
+
+### Dependency Injection
+
+Instead of creating database connections manually in each route:
+
+```python
+# ❌ Without dependency injection
+@app.get("/users/")
+def read_users():
+    db = SessionLocal()
+    users = db.query(User).all()
+    db.close()
+    return users
+```
+
+We use Depends() to inject it automatically:
+
+```python
+# ✅ With dependency injection
+@app.get("/users/")
+def read_users(db: Session = Depends(get_db)):
+    users = db.query(User).all()
+    return users
+```
+
+### CRUD OPERATIONS
+
+#### CREATE- ADD NEW USER
+
+```python
+class UserBody(BaseModel):
+    name: str
+    email: str
+
+@app.post("/user")
+def add_new_user(user: UserBody, db: Session = Depends(get_db)):
+    # Create ORM object
+    new_user = User(name=user.name, email=user.email)
+
+    # Add to session (staged for insertion)
+    db.add(new_user)
+
+    # Commit to database (actually inserts)
+    db.commit()
+
+    # Refresh to get auto-generated ID
+    db.refresh(new_user)
+
+    return new_user
+```
+
+#### Read- READ USER
+
+```python
+@app.get("/users/")
+def read_users(db: Session = Depends(get_db)):
+    users = db.query(User).all()
+    return users
+```
+
+#### Read specific user
+
+```python
+@app.get("/user")
+def get_user(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if user is None:
+        raise HTTPException(status_code=404, detail="User Not Found")
+
+    return user
+```
+
+#### Update
+
+```python
+@app.post("/user/{user_id}")
+def update_user(user_id: int, user: UserBody, db: Session = Depends(get_db)):
+    # Find existing user
+    db_user = db.query(User).filter(User.id == user_id).first()
+
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Update fields
+    db_user.name = user.name
+    db_user.email = user.email
+
+    # Save changes
+    db.commit()
+
+    # Refresh to get latest data
+    db.refresh(db_user)
+
+    return db_user
+```
+
+#### Delete
+
+```python
+@app.delete("/user")
+def delete_user(user_id: int, db: Session = Depends(get_db)):
+    db_user = db.query(User).filter(User.id == user_id).first()
+
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User Not Found")
+
+    # Delete from database
+    db.delete(db_user)
+    db.commit()
+
+    return {"details": "User deleted"}
+```
 
 ## Working With Data
 
@@ -526,140 +664,96 @@ autocommit=False : Changes aren't saved untill you call db.commit()
 autoflush=Fales : Don't automatically sync changes to database
 bind=engine : Connect sessions to our database engine
 
-### FASTAPI APPLICATION (main.py)
+### Integrating MongoDB for NoSQL data storage
 
-#### Step 1: Import Dependencies
+Transitioning from SQL to NoSQL databases opens up a different paradigm in data storage and
+management. NoSQL databases, like MongoDB, are known for their flexibility, scalability, and ability
+to handle large volumes of unstructured data.
+
+NoSQL databases differ from traditional SQL databases in that they often allow for more dynamic and
+flexible data models. MongoDB, for example, stores data in binary JSON (BSON) format, which can
+easily accommodate changes in data structure. This is particularly useful in applications that require
+rapid development and frequent updates to the database schema.
+
+`pip install pymongo`
+
+1. Create a new project folder called nosql_example. Start by defining connection configuration
+   in a database.py file:
 
 ```python
-from fastapi import Depends,FastAPI,HTTPException
+from pymongo import MongoClient
+client = MongoClient()
+database = client.mydatabase
+```
+
+Here, mydatabase is the name of your database.
+
+2. Once the connection has been set up, you can define your collections (equivalent to tables
+   in SQL databases) and start interacting with them. MongoDB stores data in collections of
+   documents, where each document is a JSON-like structure:
+
+```python
+user_collection = database["users"]
+
+```
+
+Here, user_collection is a reference to the users collection in your MongoDB database.
+Accesses a database named "mydatabase".
+If the database does not exist yet, MongoDB will create it automatically when you insert the first document.
+
+3. To test the connection, you can create an endpoint that will retrieve all users that should return
+   an empty list in a main.py file:
+
+```python
+from database import user_collection
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
-from database import SessionLocal,User
+app = FastAPI()
+class User(BaseModel):
+    name: str
+    email: str
+@app.get("/users")
+def read_users() -> list[User]:
+    return [user for user in user_collection.find()]
 ```
 
-#### Step 2: Database Dependency Function
+4. Now, we can run our mongod instance as
+   `$mongod`
+   In windows
+   `net start MongoDB`
+
+5.Now that the connection has been set up, we are going to create an endpoint to add a user and one to
+retrieve a specific user with an ID. We’ll create both endpoints in the main.py module.
+
+#### Creating a new user
+
+To add a new document to a collection, use the insert_one method
+
+class UserResponse(User):
+id: str
 
 ```python
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally db.close
-```
-
-Creates new database session
-Yield the session (gives it to the rout function)
-Automatically closes the session when done (even if error occur)
-
-### Dependency Injection
-
-Instead of creating database connections manually in each route:
-
-```python
-# ❌ Without dependency injection
-@app.get("/users/")
-def read_users():
-    db = SessionLocal()
-    users = db.query(User).all()
-    db.close()
-    return users
-```
-
-We use Depends() to inject it automatically:
-
-```python
-# ✅ With dependency injection
-@app.get("/users/")
-def read_users(db: Session = Depends(get_db)):
-    users = db.query(User).all()
-    return users
-```
-
-### CRUD OPERATIONS
-
-#### CREATE- ADD NEW USER
-
-```python
-class UserBody(BaseModel):
-    name: str
-    email: str
-
 @app.post("/user")
-def add_new_user(user: UserBody, db: Session = Depends(get_db)):
-    # Create ORM object
-    new_user = User(name=user.name, email=user.email)
-
-    # Add to session (staged for insertion)
-    db.add(new_user)
-
-    # Commit to database (actually inserts)
-    db.commit()
-
-    # Refresh to get auto-generated ID
-    db.refresh(new_user)
-
-    return new_user
+def create_user(user: User) -> UserResponse:
+    result = user_collection.insert_one(user.model_dump(exclude_none=True))
+    user_response = UserResponse(id=str(result.inserted_id), **user.model_dump())
+    return user_response
 ```
 
-#### Read- READ USER
-
-```python
-@app.get("/users/")
-def read_users(db: Session = Depends(get_db)):
-    users = db.query(User).all()
-    return users
-```
-
-#### Read specific user
+#### Reading a user
 
 ```python
 @app.get("/user")
-def get_user(user_id: int, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.id == user_id).first()
-
-    if user is None:
-        raise HTTPException(status_code=404, detail="User Not Found")
-
-    return user
+def get_user(user_id: str):
+db_user = user_collection.find_one(
+{"\_id": ObjectId(user_id) if ObjectId.is_valid(user_id) else None}
+)
+if db_user is None:
+raise HTTPException(status_code=404, detail="User Not Found")
+user_response = UserResponse(id=str(db_user["_id"]), \*\*db_user)
+return user_response
 ```
 
-#### Update
-
-```python
-@app.post("/user/{user_id}")
-def update_user(user_id: int, user: UserBody, db: Session = Depends(get_db)):
-    # Find existing user
-    db_user = db.query(User).filter(User.id == user_id).first()
-
-    if db_user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    # Update fields
-    db_user.name = user.name
-    db_user.email = user.email
-
-    # Save changes
-    db.commit()
-
-    # Refresh to get latest data
-    db.refresh(db_user)
-
-    return db_user
-```
-
-#### Delete
-
-```python
-@app.delete("/user")
-def delete_user(user_id: int, db: Session = Depends(get_db)):
-    db_user = db.query(User).filter(User.id == user_id).first()
-
-    if db_user is None:
-        raise HTTPException(status_code=404, detail="User Not Found")
-
-    # Delete from database
-    db.delete(db_user)
-    db.commit()
-
-    return {"details": "User deleted"}
-```
+In Mongo, the ID of the document is not stored in plain text, but in a 12-byte object. That’s why we
+need to initialize a dedicated bson.ObjectId when querying the database and explicitly decode
+to str when returning the value through the response
