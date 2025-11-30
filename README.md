@@ -5,6 +5,7 @@
 - [First Steps With FAST API](#first-steps-with-fast-api)
 - [SQL Alchemy With FAST API GUIDE](#sql-alchemy-with-fast-api-guide)
 - [Working With Data](#working-with-data)
+- [Building RESTful APIs with FastAPI](#Building-restful-apis-with-fastapi)
 
 ## First Steps With FAST API
 
@@ -757,3 +758,48 @@ return user_response
 In Mongo, the ID of the document is not stored in plain text, but in a 12-byte object. That’s why we
 need to initialize a dedicated bson.ObjectId when querying the database and explicitly decode
 to str when returning the value through the response
+
+
+
+## Building RESTful APIs with FastAPI
+
+Here, we will build RESTful apis for a task manager application. We will use csv file for database and additionally we will secure api with Oauth2. Furthermore, we willl tackle the important aspect of verisonuing your API over time without breaking existing clients.
+
+In this chapter, we’re going to cover the following recipes:
+ • Creating CRUD operations
+ • Creating RESTful endpoints
+ • Testing your RESTful API
+ • Handling complex queries and filtering
+ • Versioning your API
+ • Securing your API with OAuth2
+ • Documenting your API with Swagger and Redoc
+
+ we will use Pytest for testing
+
+ `pip install pytest`
+
+ ### Creating CRUD Operations
+
+
+firstly let's create a csv file named tasks.csv:
+
+id,title,description,status
+1,Task One, Desccription One, Incomplete
+2,Task Two, Desccription Two,Ongoing
+
+models.py
+
+```python
+from pydantic import BaseModel
+
+class Task(BaseModel):
+    title:str
+    description:str
+    status:str
+
+class TaskWithId(Task):
+    id:int
+```
+ We created two separate classes for task objects because id won’t be used all along the code.
+
+
