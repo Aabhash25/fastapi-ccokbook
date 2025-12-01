@@ -76,8 +76,18 @@ def remove_task(id: int) -> bool:
         for task in tasks:
             if task.id == id:
                 deleted_task = task
-                writer.writerow(task.model_dump())
+                continue
+            writer.writerow(task.model_dump())
             if deleted_task:
                 dict_task_without_id = deleted_task.model_dump()
                 del dict_task_without_id["id"]
                 return Task(**dict_task_without_id)
+
+
+from models import TaskV2WithID
+
+
+def read_all_tasks_v2() -> list[TaskV2WithID]:
+    with open(DATABASE_FILENAME) as csvfile:
+        reader = csv.DictReader(csvfile)
+        return [TaskV2WithID(**row) for row in reader]

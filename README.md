@@ -951,3 +951,412 @@ def delete_task(task_id: int):
     return removed_task
 
 ```
+
+### Testing Your RESTFUL API
+
+Testing is a critical part of API development. In fast api , we can use various testing frameworks such as pytest to write tests for your api endpoints.
+
+`pip install pytest`
+
+It’s a good practice in testing to use a dedicated database to avoid interaction with the production one.
+To accomplish this, we will create a test fixture that generates the database before each test.
+We will define this in a conftest.py module so that the fixture is applied to all tests under the
+project’s root folder. Let’s create the module in the project root folder and start by defining a list of
+test tasks and the name of the CSV file used for the tests:
+
+```python
+TEST_DATABASE_FILE = "test_tasks.csv"
+
+TEST_TASKS_CSV = [
+    {
+        "id": "1",
+        "title": "Test Task One",
+        "description": "Test Description One",
+        "status": "Incomplete",
+    },
+    {
+        "id": "2",
+        "title": "Test Task Two",
+        "description": "Test Description Two",
+        "status": "Ongoing",
+    },
+]
+
+TEST_TASKS = [{**task_json, "id": int(task_json["id"])} for task_json in TEST_TASKS_CSV]
+```
+
+We can now create a fixture that will be used for all the tests. This fixture will set up the test database
+before each test function execution.
+We can achieve this by passing the autouse=True argument to the pytest.fixture decorator,
+which indicates that the feature will run before every single test:
+
+```python
+TEST_DATABASE_FILE = (
+    "test_tasks.csv"  # this is the file pytest will create temporatrily
+)
+
+TEST_TASKS_CSV = [  # this represents how csv stores data
+    {
+        "id": "1",
+        "title": "Test Task One",
+        "description": "Test Description One",
+        "status": "Incomplete",
+    },
+    {
+        "id": "2",
+        "title": "Test Task Two",
+        "description": "Test Description Two",
+        "status": "Ongoing",
+    },
+]
+
+TEST_TASKS = [
+    {**task_json, "id": int(task_json["id"])} for task_json in TEST_TASKS_CSV
+]  # converts id fropm string to int
+import pytest
+import csv, os
+from pathlib import Path
+from unittest.mock import patch
+
+
+@pytest.fixture(
+    autouse=True
+)  # autouse=True runs before every test automatically, no need to call it manually in your test function
+def create_test_database():
+    database_file_location = str(
+        Path(__file__).parent / TEST_DATABASE_FILE
+    )  # create the path for temp csv
+    with patch(
+        "operations.DATABASE_FILENAME",
+        database_file_location,
+    ) as csv_test:
+        with open(database_file_location, mode="w", newline="") as csvfile:
+            writer = csv.DictWriter(
+                csvfile,
+                fieldnames=["id", "title", "description", "status"],
+            )
+            writer.writeheader()
+            writer.writerows(TEST_TASKS_CSV)
+            print("")
+        yield csv_test  # The fixture pauses here and lets pytest run your test functions.
+        os.remove(
+            database_file_location
+        )  # The temporary CSV file is deleted after testing is done.
+
+```
+
+To test the endpoints, FastAPI provides a specific TestClient class that allows the testing of the
+endpoints without running the server
+In a new module called test_main.py, let’s define our test client:
+
+```python
+from main import app
+from fastapi.testclient import (
+    TestClient,
+)  # TestCLient is a special testing tool from FastApi based on starlette, itn lets you call endpoints withoiut running the server
+
+client = TestClient(
+    app
+)  # creates a fake browser or fake http client that can send get,post,put ,delete requests top your fast api endpoints
+
+from conftest import TEST_TASKS
+
+
+def test_endpoint_read_all_tasks():
+    response = client.get("/tasks")
+    assert response.status_code == 200
+    assert response.json() == TEST_TASKS
+
+
+def test_endpoint_get_task():
+    response = client.get("/task/1")
+
+    assert response.status_code == 200
+    assert response.json() == TEST_TASKS[0]
+
+    response = client.get("/task/5")
+
+    assert response.status_code == 404
+
+
+from operations import read_all_tasks
+
+
+def test_endpoint_create_task():
+    task = {
+        "title": "To Define",
+        "description": "will be done",
+        "status": "Ready",
+    }
+    response = client.post("/task", json=task)
+
+    assert response.status_code == 200
+    assert response.status_code == 200
+    assert len(read_all_tasks()) == 3
+
+
+from operations import read_task
+
+
+def test_endpoint_modify_task():
+    updated_field = {"status": "Finished"}
+    response = client.put("/task/2", json=updated_field)
+    assert response.status_code == 200
+    assert response.json() == {
+        **TEST_TASKS[1],
+        **updated_field,
+    }
+    response = client.put("/task/3", json=updated_field)
+    assert response.status_code == 404
+
+
+def test_endpoint_delete_task():
+    response = client.delete("/task/2")
+    assert response.status_code == 200
+
+    expected_response = TEST_TASKS[1]
+    del expected_response["id"]
+
+    assert response.json() == expected_response
+    assert read_task(2) is None
+
+```
+
+To run the tests
+`pytest . `
+
+#### Handling Complex queries and filtering
+
+In any RESTful API, providing the functionality to filter data based on certain criteria is essential.
+In this , we’ll enhance our Task Manager API to allow users to filter tasks based on different
+parameters and create a search endpoint.
+
+The filtering functionality will be implemented in the existing GET /tasks endpoint to show how
+to overcharge an endpoint, while the search functionality will be shown on a brand-new endpoint.
+Make sure you have at least the CRUD operations already in place before continuing.
+
+We will start by overcharging GET /tasks endpoint with filters. We modify the endpoint to accept
+two query parameters: status and title.
+
+```python
+@app.get("/tasks", response_model=list[TaskWithId])
+def get_tasks(status: Optional[str] = None, title: Optional[str] = None):
+    tasks = read_all_tasks()
+    if status:
+        task = [task for task in tasks if task.status == status]
+    if title:
+        tasks = [task for task in tasks if task.title == title]
+    return tasks
+```
+
+The two parameters can be optionally specified to filter the tasks that match their value.
+
+Next, we implement a search functionality. Beyond basic filtering, implementing a search functionality
+can significantly improve the usability of an API. We’ll add a search feature that allows users to find
+tasks based on a keyword present in the title or description in a new endpoint:
+
+```python
+@app.get("/tasks/search", response_model=list[TaskWithId])
+def search_tasks(keyword: str):
+    tasks = read_all_tasks()
+    filtered_tasks = [
+        task
+        for task in tasks
+        if keyword.lower() in (task.title + task.description).lower()
+    ]
+    return filtered_tasks
+```
+
+#### Versioning Your API
+
+API versioning is a strategy ussed to manage changes in your api over time without brreaking existing clients. when you update or iumprove an api, sometimes old apps, clients or frontend code still depend on the old behavior. Versioning ensures both old and new verisons can work at the same time.
+
+API versioning is essential in maintaining and evolving web services without disrupting the existing
+users. It allows developers to introduce changes, improvements, or even breaking changes while
+providing backward compatibility. In this recipe, we will implement versioning in our Task Manager API
+
+There are several strategies for API versioning. We will use the most common approach , URL path verisoning, for your api.
+
+models.py
+
+```python
+from typing import Optional
+class TaskV2(BaseModel):
+    title: str
+    description: str
+    status: str
+    priority: str | None = "lower"
+class TaskV2WithID(TaskV2):
+    id: int
+```
+
+operations.py
+
+```python
+from models import TaskV2WIthID
+def read_all_tasks_v2() -> list[TaskV2WIthID]:
+    with open(DATABASE_FILENAME) as csvfile:
+        reader = csv.DictReader(
+            csvfile,
+        )
+        return [TaskV2WIthID(**row) for row in reader]
+```
+
+main.py
+
+```python
+from models import TaskV2WithID
+@app.get(
+    "/v2/tasks",
+    response_model=list[TaskV2WithID]
+)
+def get_tasks_v2():
+    tasks = read_all_tasks_v2()
+    return tasks
+```
+
+To test it, let's modify our tasks.csv file by manually adding the new field to test the new endpoint:
+id,title,description,status,priority
+1,Task One,Description One,Incomplete
+2,Task Two,Description Two,Ongoing,higher
+
+Check that the endpoint lists the tasks with the new priority field and that the old GET /tasks
+is still working as expected
+
+When we version an api, we are essentially providing a way to differentiate between different release or versions of your api, allowing clients to chose which version they want to interact with.
+Besides url based approach there are othe rcommon approaches to versioning.
+
+1. Query parameter versioning
+2. Header Versioning
+3. Consumer based Versioning
+
+Furthermore, it can be relevant to use semantic versining where version number follow the semantic versionin format(MAJOR,MINOR,PATCH) Changes in the MAJOR version indicate incompatible api changes while minor and patch versions indicate backward compatible changes.
+Vesioning allow api providers to introduce new changes(such as adding new features, modifying existing behaviour, or depreceation endpoints and sunsett poilicies) without breaking existing client integrations.
+It also gives consuimenrs control over when and how they adopt new versions,minimizing disruption and maintaining stability in the API ecosystem.
+
+#### Securing your api with OAUTH2
+
+In web applications, securing endpoints from unauthorized users is crucial. OAuth2 is common authorization framework that enables applications to be accessed by user accounts with restricted permissions. It works by issuing tokens instead of credentials. Here,we will use our task manager api to protect endpoints.
+
+Fast api provides support for oauth2 with a password,including the use of external tokens. Data complioance regulations require that the passwords are not store in plain text, Instead, a usual method is to store the outcome of the hashing operation, which changes the plain text into a string that is not readable by humans and can not be reversed.
+
+Important note
+With the only purpose of showing the functionality, we will fake the hashing mechanism
+as well the token creation with trivial ones. For obvious security reasons, do not use it in a
+production environment.
+
+1. First, let’s create a dictionary containing a list of users with their usernames and passwords:
+
+```python
+fake_usersa_db = {
+    "johndoe":{
+        "username":"johndoe",
+        "hashed_password":'harshedsecret',
+    },
+    "janedoe":{
+        "username":"janedoe",
+        "hashed_password":'hashedsecret2'
+    }
+}
+```
+
+2.Passwords should not be stored in plain text, but encrypted or hashed. To demonstrate the feature, we fake the hashing mechanism by inserting "hashed" before the password string:
+
+```python
+def fakely_hash_password(password:str):
+    return f"hashed{password}"
+```
+
+3. Lets create the classes to handle the users and a function to retrieve the user from the dict database we created
+
+```python
+class User(BaseModel):
+    username: str
+class UserInDB(User):
+    hashed_password: str
+def get_user(db, username: str):
+    if username in db:
+        user_dict = db[username]
+        return UserInDB(**user_dict)
+```
+
+4. Using a similar logic to what we’ve just used for hashing, let’s make a fake token generator and
+   a fake token resolver:
+
+```python
+def fake_token_generator(user: UserInDB) -> str:
+    # This doesn't provide any security at all
+    return f"tokenized{user.username}"
+def fake_token_resolver(
+    token: str
+) -> UserInDB | None:
+    if token.startswith("tokenized"):
+        user_id = token.removeprefix("tokenized")
+        user = get_user(fake_users_db, user_id)
+        return user
+```
+
+5. Now, let’s create a function to retrieve the user from the token. To this, we will make use of the
+   Depends class to use dependency injection provided by FastAPI (see https://fastapi.
+   tiangolo.com/tutorial/dependencies/), with the OAuthPasswordBearer
+   class to handle the token:
+
+```python
+from fastapi import Depends, HTTPException, status
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+def get_user_from_token(
+    token: str = Depends(oauth2_scheme),
+) -> UserInDB:
+    user = fake_token_resolver(token)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=(
+                "Invalid authentication credentials"
+            ),
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user
+```
+
+6. Let’s create the endpoint in the main.py module:
+
+```python
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+
+def get_user_from_token(token: str = Depends(oauth2_scheme)) -> UserInDB:
+    user = fake_token_resolver(token)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user
+```
+
+7. The endpoint we are going to create will return information about the current user from the
+   token provided. If the token does not have authorization, it will return a 400 exception
+
+```python
+from security import get_user_from_token
+@app.get("/users/me", response_model=User)
+def read_users_me(
+    current_user: User = Depends(get_user_from_token),
+):
+    return current_user
+```
+
+With OAuth2, we can define a scope parameter, which is used to specify the level of access that an
+access token grants to a client application when it is used to access a protected resource. Scopes can
+be used to define what actions or resources the client application is allowed to perform or access on
+behalf of the user.
+When a client requests authorization from the resource owner (user), it includes one or more scopes
+in the authorization request. In FastAPI, these scopes are represented as dict, where keys represent
+the scope’s name and the value is a description.
+The authorization server then uses these scopes to determine the appropriate access controls and
+permissions to grant to the client application when issuing an access token
